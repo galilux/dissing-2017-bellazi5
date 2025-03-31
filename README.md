@@ -19,6 +19,7 @@ Per la **seconda parte**, ho scelto il **Quesito I**, che chiede di modificare i
 Per rappresentare la realtà descritta, ho pensato a queste entità principali: `AUTISTA`, `PASSEGGERO`, `VIAGGIO`, `PRENOTAZIONE`, e `FEEDBACK`.
 
 Ecco come le ho messe in relazione:
+*![Diagramma E/R](PXL_20250331_173249342.jpg "Diagramma e/r")*
 
 
 
@@ -119,3 +120,210 @@ Di seguito presento il dettaglio degli attributi per ciascuna tabella definita n
 | VotoNumerico        | Voto numerico (es. 1-5)           | INT                        | NOT NULL, CHECK (VotoNumerico BETWEEN 1 AND 5) |
 | GiudizioTestuale    | Commento testuale                 | TEXT                       | NULL (Facoltativo)                           |
 | DataOraFeedback     | Timestamp del feedback            | DATETIME                   | NOT NULL, DEFAULT CURRENT_TIMESTAMP          |
+
+
+
+
+
+
+
+# Modello Fisico (SQL DDL) e Progetto Applicazione Web
+
+-- Tabella AUTISTA
+```sql
+CREATE TABLE AUTISTA (
+    ID_Autista INT AUTO_INCREMENT PRIMARY KEY,
+    Nome VARCHAR(50) NOT NULL,
+    Cognome VARCHAR(50) NOT NULL,
+    DataNascita DATE,
+    NumPatente VARCHAR(20) NOT NULL UNIQUE,
+    ScadenzaPatente DATE NOT NULL,
+    DatiAuto VARCHAR(100) NOT NULL COMMENT 'Es: Targa, Modello, Colore',
+    RecapitoTelefonico VARCHAR(20) NOT NULL,
+    Email VARCHAR(50) NOT NULL UNIQUE,
+    Foto VARCHAR(255) NULL COMMENT 'Path del file foto',
+    PasswordHash VARCHAR(255) NOT NULL COMMENT 'Per login'
+);
+
+
+```
+-- Tabella PASSEGGERO
+
+```sql
+
+CREATE TABLE PASSEGGERO (
+    ID_Passeggero INT AUTO_INCREMENT PRIMARY KEY,
+    Nome VARCHAR(50) NOT NULL,
+    Cognome VARCHAR(50) NOT NULL,
+    DataNascita DATE,
+    DocIdentita VARCHAR(50) NOT NULL COMMENT 'Es: CI Num, Passaporto Num',
+    RecapitoTelefonico VARCHAR(20) NOT NULL,
+    Email VARCHAR(50) NOT NULL UNIQUE,
+    PasswordHash VARCHAR(255) NOT NULL COMMENT 'Per login'
+);
+```
+
+-- Tabella VIAGGIO
+```sql
+CREATE TABLE VIAGGIO (
+    ID_Viaggio INT AUTO_INCREMENT PRIMARY KEY,
+    ID_Autista INT NOT NULL,
+    CittaPartenza VARCHAR(50) NOT NULL,
+    CittaDestinazione VARCHAR(50) NOT NULL,
+    DataOraPartenza DATETIME NOT NULL,
+    TempoStimato INT NULL COMMENT 'In minuti',
+    ContributoRichiesto DECIMAL(5,2) NOT NULL CHECK (ContributoRichiesto >= 0),
+    PostiMax INT NOT NULL CHECK (PostiMax > 0) COMMENT 'Numero massimo passeggeri',
+    Note TEXT NULL,
+    FOREIGN KEY (ID_Autista) REFERENCES AUTISTA(ID_Autista) ON DELETE CASCADE ON UPDATE CASCADE
+);
+```
+-- Tabella PRENOTAZIONE
+```sql
+CREATE TABLE PRENOTAZIONE (
+    ID_Prenotazione INT AUTO_INCREMENT PRIMARY KEY,
+    ID_Viaggio INT NOT NULL,
+    ID_Passeggero INT NOT NULL,
+    DataOraPrenotazione DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    Stato ENUM('In Attesa', 'Accettata', 'Rifiutata', 'Annullata') NOT NULL DEFAULT 'In Attesa',
+    FOREIGN KEY (ID_Viaggio) REFERENCES VIAGGIO(ID_Viaggio) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (ID_Passeggero) REFERENCES PASSEGGERO(ID_Passeggero) ON DELETE CASCADE ON UPDATE CASCADE
+);
+```
+-- Tabella FEEDBACK
+```sql
+CREATE TABLE FEEDBACK (
+    ID_Feedback INT AUTO_INCREMENT PRIMARY KEY,
+    ID_Prenotazione INT NOT NULL,
+    DatoDa ENUM('Autista', 'Passeggero') NOT NULL COMMENT 'Indica chi ha scritto il feedback',
+    VotoNumerico INT NOT NULL CHECK (VotoNumerico BETWEEN 1 AND 5),
+    GiudizioTestuale TEXT NULL,
+    DataOraFeedback DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ID_Prenotazione) REFERENCES PRENOTAZIONE(ID_Prenotazione) ON DELETE CASCADE ON UPDATE CASCADE
+);
+```
+-- Indici per le performance
+```sql
+CREATE INDEX idx_viaggio_partenza ON VIAGGIO(CittaPartenza);
+CREATE INDEX idx_viaggio_destinazione ON VIAGGIO(CittaDestinazione);
+CREATE INDEX idx_viaggio_data ON VIAGGIO(DataOraPartenza);
+CREATE INDEX idx_prenotazione_viaggio ON PRENOTAZIONE(ID_Viaggio);
+CREATE INDEX idx_prenotazione_passeggero ON PRENOTAZIONE(ID_Passeggero);
+CREATE INDEX idx_feedback_prenotazione ON FEEDBACK(ID_Prenotazione);
+```
+-- NOTA: Ho aggiunto ON DELETE CASCADE alle chiavi esterne per gestire automaticamente la cancellazione dei record correlati.
+
+--------------------------------------------------
+
+-- Interrogazioni SQL (Quesiti 3a, 3b, 3c)
+
+-- a) Elencare autisti, dati auto e costo per un viaggio (partenza, arrivo, data) con posti disponibili, ordinati per ora
+```sql
+SELECT
+    A.Nome AS NomeAutista,
+    A.Cognome AS CognomeAutista,
+    A.RecapitoTelefonico,
+    V.ID_Viaggio,
+    V.DatiAuto,
+    V.DataOraPartenza,
+    V.ContributoRichiesto,
+    (V.PostiMax - IFNULL(NumPrenotazioniAccettate.Conteggio, 0)) AS PostiDisponibili
+FROM VIAGGIO AS V
+JOIN AUTISTA AS A ON V.ID_Autista = A.ID_Autista
+LEFT JOIN (
+    SELECT ID_Viaggio, COUNT(*) AS Conteggio
+    FROM PRENOTAZIONE
+    WHERE Stato = 'Accettata'
+    GROUP BY ID_Viaggio
+) AS NumPrenotazioniAccettate ON V.ID_Viaggio = NumPrenotazioniAccettate.ID_Viaggio
+WHERE
+    V.CittaPartenza = 'NomeCittaPartenza'
+    AND V.CittaDestinazione = 'NomeCittaDestinazione'
+    AND DATE(V.DataOraPartenza) = 'YYYY-MM-DD'
+    AND (V.PostiMax - IFNULL(NumPrenotazioniAccettate.Conteggio, 0)) > 0
+    AND V.DataOraPartenza >= NOW()
+ORDER BY
+    V.DataOraPartenza ASC;
+```
+-- NOTA: Sostituire 'NomeCittaPartenza', 'NomeCittaDestinazione' e 'YYYY-MM-DD' con i valori reali.
+
+-- b) Estrarre dati per email di promemoria per una prenotazione accettata
+```sql
+SELECT
+    P.Nome AS NomePasseggero,
+    P.Cognome AS CognomePasseggero,
+    P.Email AS EmailPasseggero,
+    V.CittaPartenza,
+    V.CittaDestinazione,
+    V.DataOraPartenza,
+    A.Nome AS NomeAutista,
+    A.Cognome AS CognomeAutista,
+    A.RecapitoTelefonico AS TelAutista,
+    A.DatiAuto
+FROM PRENOTAZIONE AS PR
+JOIN PASSEGGERO AS P ON PR.ID_Passeggero = P.ID_Passeggero
+JOIN VIAGGIO AS V ON PR.ID_Viaggio = V.ID_Viaggio
+JOIN AUTISTA AS A ON V.ID_Autista = A.ID_Autista
+WHERE
+    PR.ID_Prenotazione = 123
+    AND PR.Stato = 'Accettata';
+```
+-- NOTA: Sostituire 123 con l'ID della prenotazione specifica.
+
+-- c) Dato un viaggio, elencare i passeggeri prenotati (accettati) con voto medio ricevuto superiore a X
+```sql
+SELECT
+    P.ID_Passeggero,
+    P.Nome,
+    P.Cognome,
+    AVG(F.VotoNumerico) AS VotoMedioRicevuto
+FROM PASSEGGERO AS P
+JOIN PRENOTAZIONE AS PR ON P.ID_Passeggero = PR.ID_Passeggero
+LEFT JOIN FEEDBACK AS F ON PR.ID_Prenotazione = F.ID_Prenotazione AND F.DatoDa = 'Autista'
+WHERE
+    PR.ID_Viaggio = 456
+    AND PR.Stato = 'Accettata'
+GROUP BY
+    P.ID_Passeggero, P.Nome, P.Cognome
+HAVING
+    AVG(F.VotoNumerico) > 3.5 OR AVG(F.VotoNumerico) IS NULL
+ORDER BY
+    P.Cognome, P.Nome;
+```
+
+
+--------------------------------------------------
+
+-- Progetto di Massima dell'Applicazione Web (Punto 4 + Quesito II.I)
+
+-- Architettura:
+-- Client: Browser web con HTML, CSS per interfaccia dinamica (validazione form, aggiornamenti in tempo reale).
+-- Server: Linguaggio (PHP) che interagisce con un database MySQL, gestendo logica applicativa, sessioni utente e accesso ai dati.
+
+-- Gestione Automatica Posti (Quesito II.I):
+-- Il campo PostiMax nella tabella VIAGGIO viene usato per calcolare dinamicamente i posti disponibili:
+--   PostiDisponibili = VIAGGIO.PostiMax - (Numero di PRENOTAZIONI con Stato='Accettata' per quel VIAGGIO)
+
+-- Segmento Significativo: Ricerca e Visualizzazione Viaggi per il Passeggero
+
+-- Pagina HTML/PHP (es. cerca_viaggio.php):
+--   - Contiene un form HTML in cui il passeggero inserisce:
+--       * Città di Partenza (input text)
+--       * Città di Destinazione (input text)
+--       * Data del Viaggio (input date)
+--       * Pulsante "Cerca"
+
+-- Logica Server (nel file cerca_viaggio.php o script associato):
+--   1. Ricezione dei parametri dal form (città di partenza, destinazione, data).
+--   2. Connessione al database MySQL con le credenziali.
+--   3. Esecuzione di una query simile a quella del quesito 3a per selezionare i viaggi corrispondenti e calcolare i PostiDisponibili (mostrando solo viaggi con posti > 0).
+--   4. Recupero dei risultati e chiusura della connessione.
+
+-- Visualizzazione Risultati:
+--   Sotto il form, la pagina visualizza una tabella HTML in cui per ogni viaggio vengono mostrati:
+--       * Nome dell'autista (con possibile link al profilo/feedback)
+--       * Data e ora di partenza
+--       * Contributo Richiesto (€)
+--       * Posti Disponibili (calcolati dinamicamente dalla query)
+--       * Pulsante "Dettagli" o "Prenota" che passa l'ID_Viaggio ad una pagina o azione successiva.
+
