@@ -1,5 +1,18 @@
 # Progetto Car Pooling - Svolgimento Esame di Stato 2017
+## Indice
 
+*   [1. Analisi della Traccia](#1-analisi-della-traccia)
+*   [2. Schema Concettuale (Diagramma E/R)](#2-schema-concettuale-diagramma-er)
+*   [3. Espressione delle Cardinalità](#3-espressione-delle-cardinalità)
+*   [4. Modello Logico (Schema Relazionale)](#4-modello-logico-schema-relazionale)
+*   [5. Descrizione Dettagliata degli Attributi](#5-descrizione-dettagliata-degli-attributi)
+*   [Modello Fisico (SQL DDL) e Progetto Applicazione Web](#modello-fisico-sql-ddl-e-progetto-applicazione-web)
+*   [Come importare e collegare il Database](#come-importare-e-collegare-il-database)
+*   [Setup del Database](#setup-del-database)
+    *   [Metodo 1: Installazione di XAMPP (Consigliato)](#metodo-1-installazione-di-xampp-consigliato)
+    *   [Metodo 2: Esecuzione Manuale delle Query](#metodo-2-esecuzione-manuale-delle-query-se-non-usi-xamppphpmyadmin)
+*   [Connessione tra PHP e Database (con XAMPP)](#connessione-tra-php-e-database-con-xampp)
+*   [Avvio dell'Applicazione](#avvio-dellapplicazione)
 
 
 ## 1. Analisi della Traccia
@@ -327,3 +340,146 @@ ORDER BY
 --       * Posti Disponibili (calcolati dinamicamente dalla query)
 --       * Pulsante "Dettagli" o "Prenota" che passa l'ID_Viaggio ad una pagina o azione successiva.
 
+
+
+## Come importare e collegare il Database
+
+Per far funzionare questo progetto in locale, avrai bisogno di:
+
+1.  **XAMPP:** Un ambiente di sviluppo locale che include Apache (web server), MariaDB/MySQL (database) e PHP.
+    *   Puoi scaricarlo da [https://www.apachefriends.org/it/index.html](https://www.apachefriends.org/it/index.html)
+
+## Setup del Database
+
+Ci sono due modi principali per configurare il database necessario.
+
+### Metodo 1: Installazione di XAMPP (Consigliato)
+
+1.  **Installa XAMPP:** Scarica e installa XAMPP seguendo le istruzioni per il tuo sistema operativo.
+2.  **Avvia XAMPP:** Apri il Pannello di Controllo di XAMPP (XAMPP Control Panel).
+3.  **Avvia i Moduli:** Avvia i moduli **Apache** e **MySQL** cliccando sui rispettivi pulsanti "Start".
+4.  **Crea il Database:**
+    *   Apri il tuo browser web e vai a `http://localhost/phpmyadmin`.
+    *   Clicca su "Nuovo" (o "New") nel menu a sinistra.
+    *   Inserisci un nome per il database. **Importante:** Usa lo stesso nome specificato nei file di configurazione PHP del progetto (ad esempio, `db_carpooling` o `db_scuola` come negli esempi precedenti - **verifica quale nome è usato nei tuoi file PHP!**). Scegli `utf8mb4_general_ci` come codifica (collation) se richiesto.
+    *   Clicca su "Crea" (o "Create").
+5.  **Importa la Struttura:**
+    *   Una volta creato il database, selezionalo dal menu a sinistra.
+    *   Vai alla scheda "SQL" in alto.
+    *   Copia **tutto** il blocco di codice SQL qui sotto.
+    *   Incolla il codice nella grande casella di testo della scheda "SQL".
+    *   Clicca sul pulsante "Esegui" (o "Go") in basso a destra.
+    *   Se tutto va bene, vedrai un messaggio di successo e le tabelle appariranno nel menu a sinistra sotto il nome del tuo database.
+
+### Metodo 2: Esecuzione Manuale delle Query (Se non usi XAMPP/phpMyAdmin)
+
+Se hai un server MySQL/MariaDB già configurato e preferisci usare la riga di comando o un altro strumento:
+
+1.  **Connettiti al tuo server database.**
+2.  **Crea il database** (se non esiste già), assicurandoti che il nome corrisponda a quello usato nei file PHP:
+    ```sql
+    CREATE DATABASE IF NOT EXISTS nome_tuo_database; -- Sostituisci nome_tuo_database!
+    USE nome_tuo_database; -- Seleziona il database appena creato
+    ```
+3.  **Esegui le seguenti query SQL** per creare tutte le tabelle e gli indici necessari:
+
+```sql
+-- Tabella AUTISTA
+CREATE TABLE AUTISTA (
+    ID_Autista INT AUTO_INCREMENT PRIMARY KEY,
+    Nome VARCHAR(50) NOT NULL,
+    Cognome VARCHAR(50) NOT NULL,
+    DataNascita DATE,
+    NumPatente VARCHAR(20) NOT NULL UNIQUE,
+    ScadenzaPatente DATE NOT NULL,
+    DatiAuto VARCHAR(100) NOT NULL COMMENT 'Es: Targa, Modello, Colore',
+    RecapitoTelefonico VARCHAR(20) NOT NULL,
+    Email VARCHAR(50) NOT NULL UNIQUE,
+    Foto VARCHAR(255) NULL COMMENT 'Path del file foto',
+    PasswordHash VARCHAR(255) NOT NULL COMMENT 'Per login (ATTENZIONE: nel codice fornito salva la password in chiaro!)'
+);
+
+-- Tabella PASSEGGERO
+CREATE TABLE PASSEGGERO (
+    ID_Passeggero INT AUTO_INCREMENT PRIMARY KEY,
+    Nome VARCHAR(50) NOT NULL,
+    Cognome VARCHAR(50) NOT NULL,
+    DataNascita DATE,
+    DocIdentita VARCHAR(50) NOT NULL COMMENT 'Es: CI Num, Passaporto Num',
+    RecapitoTelefonico VARCHAR(20) NOT NULL,
+    Email VARCHAR(50) NOT NULL UNIQUE,
+    PasswordHash VARCHAR(255) NOT NULL COMMENT 'Per login (ATTENZIONE: nel codice fornito salva la password in chiaro!)'
+);
+
+-- Tabella VIAGGIO
+CREATE TABLE VIAGGIO (
+    ID_Viaggio INT AUTO_INCREMENT PRIMARY KEY,
+    ID_Autista INT NOT NULL,
+    CittaPartenza VARCHAR(50) NOT NULL,
+    CittaDestinazione VARCHAR(50) NOT NULL,
+    DataOraPartenza DATETIME NOT NULL,
+    TempoStimato INT NULL COMMENT 'In minuti',
+    ContributoRichiesto DECIMAL(5,2) NOT NULL CHECK (ContributoRichiesto >= 0),
+    PostiMax INT NOT NULL CHECK (PostiMax > 0) COMMENT 'Numero massimo passeggeri',
+    Note TEXT NULL,
+    FOREIGN KEY (ID_Autista) REFERENCES AUTISTA(ID_Autista) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Tabella PRENOTAZIONE
+CREATE TABLE PRENOTAZIONE (
+    ID_Prenotazione INT AUTO_INCREMENT PRIMARY KEY,
+    ID_Viaggio INT NOT NULL,
+    ID_Passeggero INT NOT NULL,
+    DataOraPrenotazione DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    Stato ENUM('In Attesa', 'Accettata', 'Rifiutata', 'Annullata') NOT NULL DEFAULT 'In Attesa',
+    FOREIGN KEY (ID_Viaggio) REFERENCES VIAGGIO(ID_Viaggio) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (ID_Passeggero) REFERENCES PASSEGGERO(ID_Passeggero) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Tabella FEEDBACK
+CREATE TABLE FEEDBACK (
+    ID_Feedback INT AUTO_INCREMENT PRIMARY KEY,
+    ID_Prenotazione INT NOT NULL,
+    DatoDa ENUM('Autista', 'Passeggero') NOT NULL COMMENT 'Indica chi ha scritto il feedback',
+    VotoNumerico INT NOT NULL CHECK (VotoNumerico BETWEEN 1 AND 5),
+    GiudizioTestuale TEXT NULL,
+    DataOraFeedback DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ID_Prenotazione) REFERENCES PRENOTAZIONE(ID_Prenotazione) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Indici per le performance
+CREATE INDEX idx_viaggio_partenza ON VIAGGIO(CittaPartenza);
+CREATE INDEX idx_viaggio_destinazione ON VIAGGIO(CittaDestinazione);
+CREATE INDEX idx_viaggio_data ON VIAGGIO(DataOraPartenza);
+CREATE INDEX idx_prenotazione_viaggio ON PRENOTAZIONE(ID_Viaggio);
+CREATE INDEX idx_prenotazione_passeggero ON PRENOTAZIONE(ID_Passeggero);
+CREATE INDEX idx_feedback_prenotazione ON FEEDBACK(ID_Prenotazione);
+
+```
+## Connessione tra PHP e Database (con XAMPP)
+
+I file PHP di questo progetto (non inclusi qui, ma parte dell'implementazione web) si connetteranno al database usando delle credenziali specificate solitamente all'inizio degli script o in un file di configurazione separato (es: `config.php`).
+
+Con una installazione standard di XAMPP, i parametri di connessione sono generalmente:
+
+*   **Server/Host:** `localhost` (o `127.0.0.1`)
+*   **Nome Utente:** `root`
+*   **Password:** `` (vuota, nessuna password)
+*   **Nome Database:** Il nome che hai scelto durante la creazione nel passaggio precedente (es: `db_carpooling`, `db_scuola` - **deve corrispondere!**).
+
+Tuttavia nel seguente progetto sono state scelte le seguente credenziali:
+*   **Server/Host:** `localhost`
+*   **Nome Utente:** `torsello`
+*   **Password:** `1234` 
+*   **Nome Database:`202425_5ib_gesualdo_carpoolingdb`
+
+**Verifica i file PHP:** Quando importerai l'applicazione web, assicurati che le variabili usate per la connessione (`$servername`, `$user`, `$pw`, `$dbname` o nomi simili) nei tuoi script PHP corrispondano a questi valori predefiniti di XAMPP e al nome del database che hai creato.
+
+## Avvio dell'Applicazione
+
+Questa sezione descrive come avviare l'applicazione web una volta che avrai sviluppato il codice PHP e l'interfaccia:
+
+1.  Assicurati che Apache e MySQL siano in esecuzione nel Pannello di Controllo XAMPP.
+2.  Copia l'intera cartella del tuo progetto PHP/HTML/CSS dentro la cartella `htdocs` di XAMPP (solitamente si trova in `C:\xampp\htdocs` su Windows o `/Applications/XAMPP/htdocs` su macOS).
+3.  Apri il browser e vai a `http://localhost/nome_cartella_progetto/` (sostituisci `nome_cartella_progetto` con il nome effettivo della cartella che hai copiato in `htdocs`).
+4.  Dovresti vedere la pagina iniziale dell'applicazione (la pagina di login o registrazione).
