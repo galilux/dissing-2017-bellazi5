@@ -89,6 +89,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         Password: <input type="password" name="password" required><br>
         <button type="submit">Login</button>
     </form>
-    <p>Non hai un account? <a href="registra_autista.php">Registrati come Autista</a> | <a href="registra_passeggero.php">Registrati come Passeggero</a></p>
+    <p>Non hai un account? <a href="./registra_autista.php">Registrati come Autista</a> | <a href="./registra_passeggero.php">Registrati come Passeggero</a></p>
 </body>
 </html>
