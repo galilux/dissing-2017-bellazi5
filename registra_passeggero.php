@@ -1,8 +1,8 @@
 <?php
 $servername = "localhost";
-$user = "root";
-$pw = ""; // La tua password del database, se presente
-$dbname = "db_scuola"; // Assicurati che sia il nome corretto del tuo DB carpooling
+$user = "torsello";
+$pw = "1234"; // La tua password del database, se presente
+$dbname = "202425_5ib_gesualdo_carPoolingDB"; // Assicurati che sia il nome corretto del tuo DB carpooling
 
 $conn = new mysqli($servername, $user, $pw, $dbname);
 
