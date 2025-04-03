@@ -305,15 +305,14 @@ ORDER BY
 ```
 
 
---------------------------------------------------
 
--- Progetto di Massima dell'Applicazione Web (Punto 4 + Quesito II.I)
+## Progetto di Massima dell'Applicazione Web (Punto 4 + Quesito II.I):
 
 -- Architettura:
 -- Client: Browser web con HTML, CSS per interfaccia dinamica (validazione form, aggiornamenti in tempo reale).
 -- Server: Linguaggio (PHP) che interagisce con un database MySQL, gestendo logica applicativa, sessioni utente e accesso ai dati.
 
--- Gestione Automatica Posti (Quesito II.I):
+## Gestione Automatica Posti (Quesito II.I):
 -- Il campo PostiMax nella tabella VIAGGIO viene usato per calcolare dinamicamente i posti disponibili:
 --   PostiDisponibili = VIAGGIO.PostiMax - (Numero di PRENOTAZIONI con Stato='Accettata' per quel VIAGGIO)
 
